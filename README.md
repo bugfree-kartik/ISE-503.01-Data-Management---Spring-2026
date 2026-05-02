@@ -1,18 +1,133 @@
-# SBU Dining System — ISE 503 Project
+# SBU Dining System — ISE 503 Project · Spring 2026
 
-A relational database modeling Stony Brook University's campus dining system: meal plans, dining halls, food stations, menu items, students, employees, transactions, allergens, and reviews.
+A full-stack relational database application modeling Stony Brook University's campus dining system.
 
-## Project structure
+**Stack:** PostgreSQL · Node.js / Express · React (Vite + Tailwind CSS)
 
-| File | Description |
+---
+
+## Project Structure
+
+```
+.
+├── db/
+│   ├── schema.sql          # PostgreSQL-compatible DDL (CREATE TABLE)
+│   └── seed.sql            # Sample data — ~45 rows/table, 545 total
+├── backend/                # Express REST API
+│   ├── server.js
+│   ├── db.js               # PostgreSQL connection pool
+│   ├── .env                # DB credentials (copy from .env.example)
+│   └── routes/
+│       ├── stats.js        # Dashboard KPIs
+│       ├── analytics.js    # 10 complex SQL queries
+│       ├── diningHalls.js
+│       ├── menuItems.js
+│       ├── students.js
+│       ├── dailyMenu.js
+│       ├── reviews.js
+│       └── transactions.js
+├── frontend/               # React SPA
+│   ├── vite.config.js      # Proxies /api → :3001
+│   └── src/
+│       ├── App.jsx
+│       ├── components/     # Layout, Sidebar
+│       └── pages/          # Dashboard, DiningHalls, MenuItems, DailyMenu,
+│                           #   Students, Reviews, Analytics
+├── 01_create_tables.sql    # Original DDL (MySQL/SQLite compatible)
+├── 02_insert_data.sql      # Original seed data
+└── 03_queries.sql          # 10 complex queries (original)
+```
+
+---
+
+## Quick Start
+
+### 1 — Create the PostgreSQL database
+
+```bash
+createdb sbu_dining
+psql sbu_dining -f db/schema.sql
+psql sbu_dining -f db/seed.sql
+```
+
+> If you use a password or different username, edit `backend/.env` first.
+
+### 2 — Configure the backend
+
+```bash
+# Edit DB credentials if needed
+nano backend/.env
+```
+
+Default `.env`:
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=sbu_dining
+DB_USER=postgres
+DB_PASSWORD=
+PORT=3001
+```
+
+### 3 — Start the backend
+
+```bash
+cd backend
+npm install        # already done if you cloned fresh
+npm run dev        # nodemon (auto-restart) — or: npm start
+```
+
+The API runs on **http://localhost:3001**
+
+### 4 — Start the frontend
+
+```bash
+cd frontend
+npm install        # already done if you cloned fresh
+npm run dev
+```
+
+Open **http://localhost:5173** in your browser.
+
+---
+
+## API Reference
+
+| Endpoint | Description |
 |---|---|
-| `00_design_document.md` | Schema design document (entities, relationships, constraints) |
-| `01_create_tables.sql` | DDL — CREATE TABLE statements with all constraints |
-| `02_insert_data.sql` | DML — sample data, ~45 rows per table |
-| `03_queries.sql` | 10 complex SQL queries with multi-table joins |
-| `README.md` | This file |
+| `GET /api/stats` | Dashboard KPIs (counts, revenue, avg rating) |
+| `GET /api/dining-halls` | All 8 halls with station count & avg rating |
+| `GET /api/menu-items` | Menu with filters: `?vegan=true&gluten_free=true&category=Entree` |
+| `GET /api/daily-menu` | Menu by date/period: `?date=2026-04-20&period=Lunch` |
+| `GET /api/daily-menu/dates` | List all available serve dates |
+| `GET /api/students` | Students with meal plan & spending info |
+| `GET /api/reviews` | Reviews with optional `?hall_id=` or `?item_id=` |
+| `GET /api/transactions` | Transactions with optional filters |
+| `GET /api/analytics/meta` | Metadata for all 10 queries |
+| `GET /api/analytics/:id` | Run query 1–10, returns columns + rows |
 
-## Database statistics
+---
+
+## The 10 Analytical Queries
+
+| # | Title | SQL Techniques |
+|---|---|---|
+| 1 | Top 5 Students by Spend | 3-way JOIN, aggregation, ORDER BY, LIMIT |
+| 2 | Most Popular Menu Items | Multi-aggregation, ranking |
+| 3 | Hall Ratings (≥ 3 reviews) | GROUP BY + HAVING |
+| 4 | Vegan + GF Allergen-Free Items | LEFT JOIN + IS NULL anti-join |
+| 5 | Supervisor Analysis | Self-join, wage gap |
+| 6 | Revenue by Hall × Payment Method | Two-key GROUP BY |
+| 7 | Students Who Visited 3+ Halls | COUNT(DISTINCT) + HAVING |
+| 8 | Daily Menu with Allergen Warnings | 6-way JOIN + STRING_AGG |
+| 9 | Dead Menu Items | Double LEFT JOIN anti-join |
+| 10 | High-Investment Students | Scalar subqueries + nested aggregation |
+
+All queries are runnable live from the **Analytics** page in the UI.
+
+---
+
+## Database Schema (12 tables, 545 rows)
 
 | Table | Rows |
 |---|---|
@@ -30,67 +145,16 @@ A relational database modeling Stony Brook University's campus dining system: me
 | Review | 45 |
 | **Total** | **545** |
 
-Average ≈ **45 rows per table**.
+---
 
-## How to run
+## Frontend Pages
 
-The SQL is portable and runs on **MySQL 8.0+, PostgreSQL, SQLite, MariaDB**.
-
-### MySQL / MariaDB
-
-```bash
-mysql -u root -p
-```
-```sql
-CREATE DATABASE sbu_dining;
-USE sbu_dining;
-SOURCE 01_create_tables.sql;
-SOURCE 02_insert_data.sql;
-SOURCE 03_queries.sql;
-```
-
-### PostgreSQL
-
-```bash
-createdb sbu_dining
-psql sbu_dining
-```
-```sql
-\i 01_create_tables.sql
-\i 02_insert_data.sql
-\i 03_queries.sql
-```
-
-> **Note for PostgreSQL:** in Query 8, replace `GROUP_CONCAT(a.allergen_name, ', ')` with `STRING_AGG(a.allergen_name, ', ')`. Replace `||` string concatenation works as-is.
-
-### SQLite
-
-```bash
-sqlite3 sbu_dining.db
-```
-```sql
-.read 01_create_tables.sql
-.read 02_insert_data.sql
-.read 03_queries.sql
-```
-
-## Validation
-
-The full schema, data, and all 10 queries have been tested end-to-end on SQLite 3.45 (the `BOOLEAN` and `CHECK` syntax is portable across the listed DBs).
-
-## Note on the table name `DiningTransaction`
-
-The conceptual entity is "Transaction," but `TRANSACTION` is a reserved word in MySQL, PostgreSQL, and SQLite. The table is therefore named `DiningTransaction` to avoid the need for backticks/quotes.
-
-## The 10 queries
-
-1. **Top 5 spenders** — `Student × DiningTransaction × MealPlan` aggregation.
-2. **Most popular menu items** — `MenuItem × TransactionItem × DiningTransaction` ranking by quantity sold.
-3. **Hall ratings (≥3 reviews)** — `DiningHall × Review` with `HAVING` filter.
-4. **Vegan + GF + allergen-free items** — `LEFT JOIN` anti-pattern.
-5. **Supervisor analysis** — recursive self-join on `Employee` with wage gap.
-6. **Revenue by hall × payment method** — two-key grouping.
-7. **Students who tried 3+ halls** — `COUNT(DISTINCT)` with `HAVING`.
-8. **Daily menu with allergen warnings** — 6-way join with `GROUP_CONCAT`.
-9. **Dead menu items** — never ordered, never reviewed (anti-join).
-10. **High-investment students** — nested subqueries and aggregation.
+| Page | Description |
+|---|---|
+| Dashboard | KPI cards + top spenders, popular items, hall ratings |
+| Dining Halls | Cards + table view of all 8 halls |
+| Menu Items | Filterable table (category, vegan/GF/vegetarian, search) |
+| Daily Menu | Date + meal period picker, grouped by hall → station |
+| Students | Filterable table with meal plan & spending info |
+| Reviews | Feed with rating distribution + filter by hall/item |
+| Analytics | Run any of the 10 complex queries, view results live |
